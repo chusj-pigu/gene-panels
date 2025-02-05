@@ -1,0 +1,4 @@
+hgnc_symbol	chromosome_name	start_position	end_position	strand
+IGH	14	105586437	106879843	-1
+TRB	7	142299011	142813287	1
+TRAV	14	21621904	22552132	1
