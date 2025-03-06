@@ -17,7 +17,7 @@ option_list <- list(
                             help = "Padding for start and end positions [default: %default]", metavar = "NUMBER"),
     make_option(c("-d", "--genome"), type = "character", default = "hg38",
                             help = "UCSC genome version (e.g., hg38, hg19) [default: %default]", metavar = "STRING"),
-    make_option(c("-l", "--loci"), type = "character", default = "sj-panel/loci.txt",
+    make_option(c("-l", "--loci"), type = "character", default = NULL,
                             help = "Path to the file with additional loci [default: %default]", metavar = "FILE"),
     make_option(c("-r", "--outdir"), type = "character", default = ".",
                             help = "Output directory [default: %default]", metavar = "DIR")
@@ -51,10 +51,13 @@ gene_loci_canonical <- gene_loci |>
     filter(chromosome_name %in% c(as.character(1:22), "X", "Y"))
 
 # ---- Add manual loci ----
-read_tsv(opt$loci, col_types = c("cciii")) |>
-    bind_rows(gene_loci_canonical) |>
-    mutate(chromosome_name = factor(chromosome_name, levels = c(as.character(1:22), "X", "Y"))) ->
-    gene_loci_canonical
+# Parse only if loci not empty
+if( !is.null(opt$loci) ) {
+    read_tsv(opt$loci, col_types = c("cciii")) |>
+        bind_rows(gene_loci_canonical) |>
+        mutate(chromosome_name = factor(chromosome_name, levels = c(as.character(1:22), "X", "Y"))) ->
+        gene_loci_canonical
+}
 
 # ---- Add padding, generate gene IDs, and prepare for BED format ----
 gene_loci_bed <- gene_loci_canonical |>
@@ -66,7 +69,8 @@ gene_loci_bed <- gene_loci_canonical |>
     rename(start = start_position, end = end_position, chrom = chromosome_name) |>
     mutate(start = pmax(0, start - opt$padding), end = end + opt$padding) |>
     mutate(chrom = paste0("chr", chrom)) |>
-    select(chrom, start, end, gene_id, strand) |>
+    mutate(size = end - start) |>
+    select(chrom, start, end, gene_id, strand, size) |>
     mutate(
         ucsc_link = paste0(
             "https://genome.ucsc.edu/cgi-bin/hgTracks?db=",
@@ -88,12 +92,35 @@ gene_loci_bed <- gene_loci_canonical |>
             "-",
             end
         )
-    ) 
+    )
 
-gene_loci_bed |>
+# ---- Calculate genome coverage ----
+total_genome_size <- ifelse(opt$genome == "hg38", 3.2e9, 3090000000) # Approximate size of human genome
+panel_size <- sum(gene_loci_bed$end - gene_loci_bed$start)
+percent_coverage <- (panel_size / total_genome_size) * 100
+
+# ---- Create a summary dataframe ----
+summary_df <- tibble(
+    Total_Genome_Size = total_genome_size,
+    Panel_Size = panel_size,
+    Percent_Genome_Coverage = percent_coverage
+)
+
+# ---- Add summary dataframe to xlsx list ----
+
+gene_loci_out <- 
+    list(
+        "Panel" = gene_loci_bed, 
+        "Summary" = summary_df
+        )
+
+gene_loci_out |>
     writexl::write_xlsx(paste0(opt$outdir,"/",Sys.Date(), "-CHUSJ-Panel-",opt$padding/1000, "kb-",  opt$output, ".xlsx"))
 
 
 gene_loci_bed |>
     select(chrom, start, end, gene_id) |>
     write_tsv(paste0(opt$outdir,"/", Sys.Date(), "-CHUSJ-Panel-",opt$padding/1000, "kb-", opt$output, ".bed"), col_names = FALSE)
+
+# ---- Print summary ----
+print(summary_df)
