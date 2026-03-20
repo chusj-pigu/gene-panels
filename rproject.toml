@@ -1,0 +1,27 @@
+[project]
+name = "gene-panels"
+r_version = "4.5"
+
+# A list of repositories to fetch packages from. Order matters: we will try to get a package from each repository in order.
+# The alias is only used in this file if you want to specifically require a dependency to come from a certain repository.
+# Example: { alias = "PPM", url = "https://packagemanager.posit.co/cran/latest" },
+repositories = [
+    { alias = "BIOC_SOFTWARE", url = "https://bioconductor.org/packages/release/bioc" },
+    { alias = "BIOC_ANNOTATION", url = "https://bioconductor.org/packages/release/data/annotation" },
+    { alias = "BIOC_EXPERIMENT", url = "https://bioconductor.org/packages/release/data/experiment" },
+    { alias = "BIOC_WORKFLOWS", url = "https://bioconductor.org/packages/release/workflows" },
+    { alias = "CRAN", url = "https://mirror.csclub.uwaterloo.ca/CRAN/" },
+]
+
+# A list of packages to install and any additional configuration
+# Examples:
+    # "dplyr",
+    # {name = "dplyr", repository = "CRAN"},
+    # {name = "dplyr", git = "https://github.com/tidyverse/dplyr.git", tag = "v1.1.4"},
+dependencies = [
+    "optparse",
+    "biomaRt",
+    "tidyverse",
+    "magrittr",
+    "writexl",
+]
