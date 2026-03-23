@@ -99,8 +99,10 @@ jobs:
           cat "${manifest}"
 
           {
-            echo "manifest_path=${manifest}"
             echo "asset_count=$(wc -l < "${manifest}" | tr -d ' ')"
+            echo "files<<EOF"
+            cat "${manifest}"
+            echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Create or update GitHub release
@@ -113,4 +115,4 @@ jobs:
           draft: ${{ inputs.draft }}
           prerelease: ${{ inputs.prerelease }}
           fail_on_unmatched_files: true
-          files: ${{ steps.assets.outputs.manifest_path }}
+          files: ${{ steps.assets.outputs.files }}
