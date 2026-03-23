@@ -1,0 +1,116 @@
+name: Publish Release Files
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Git tag for the release
+        required: true
+        type: string
+      release_name:
+        description: Release title shown on GitHub
+        required: true
+        type: string
+      files:
+        description: Newline-separated file paths or globs to upload
+        required: true
+        type: string
+      target_commitish:
+        description: Branch or commit to tag when creating a new release
+        required: false
+        default: main
+        type: string
+      body:
+        description: Optional release notes
+        required: false
+        type: string
+      draft:
+        description: Create the release as a draft
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: Mark the release as a prerelease
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release assets
+        id: assets
+        shell: bash
+        env:
+          INPUT_FILES: ${{ inputs.files }}
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+
+          manifest="${RUNNER_TEMP}/release-assets.txt"
+          : > "${manifest}"
+
+          while IFS= read -r raw_line; do
+            line="${raw_line#"${raw_line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+
+            if [[ -z "${line}" ]]; then
+              continue
+            fi
+
+            if [[ "${line}" == \#* ]]; then
+              continue
+            fi
+
+            matches=( ${line} )
+            if [[ ${#matches[@]} -eq 0 ]]; then
+              echo "No files matched pattern: ${line}" >&2
+              exit 1
+            fi
+
+            for match in "${matches[@]}"; do
+              if [[ ! -f "${match}" ]]; then
+                echo "Matched path is not a file: ${match}" >&2
+                exit 1
+              fi
+
+              printf '%s\n' "${match}" >> "${manifest}"
+            done
+          done <<< "${INPUT_FILES}"
+
+          sort -u "${manifest}" -o "${manifest}"
+
+          if [[ ! -s "${manifest}" ]]; then
+            echo "No release assets were resolved from the provided file list." >&2
+            exit 1
+          fi
+
+          echo "Resolved release assets:"
+          cat "${manifest}"
+
+          {
+            echo "manifest_path=${manifest}"
+            echo "asset_count=$(wc -l < "${manifest}" | tr -d ' ')"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          name: ${{ inputs.release_name }}
+          target_commitish: ${{ inputs.target_commitish }}
+          body: ${{ inputs.body }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          fail_on_unmatched_files: true
+          files: ${{ steps.assets.outputs.manifest_path }}

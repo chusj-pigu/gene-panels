@@ -59,6 +59,25 @@ All three R scripts also accept `--output-file` to override the BED output path 
 - Each release folder in `adaptive_sampling_panels/` documents the panel content differences relative to the previous version.
 - Some older or manually named outputs may use legacy naming conventions; the per-release READMEs call those out where relevant.
 
+## GitHub Releases
+This repo includes a manual GitHub Actions workflow at [.github/workflows/publish-release-files.yml](/home/geonic/Documents/GitHub/gene-panels/.github/workflows/publish-release-files.yml) to publish selected files as release assets.
+
+Use the `Publish Release Files` workflow from the Actions tab and provide:
+- a `tag_name` such as `v1.0.5`
+- a `release_name`
+- newline-separated file paths or globs under `adaptive_sampling_panels/`
+
+Example `files` input:
+
+```text
+adaptive_sampling_panels/v1.0.5-release/v1.0.5-analysis-set-0kb-pad.bed
+adaptive_sampling_panels/v1.0.5-release/v1.0.5-analysis-set-0kb-pad.xlsx
+adaptive_sampling_panels/v1.0.5-release/v1.0.5-sequencing-panel-20kb-pad-50kb-merge.bed
+adaptive_sampling_panels/v1.0.5-release/v1.0.5-sequencing-panel-20kb-pad-50kb-merge.xlsx
+```
+
+The workflow creates the release if the tag does not exist yet, or updates the existing release and replaces matching assets if it does.
+
 ## Notes
 To remove `0001_chr1_`-style prefixes from BED name fields for downstream tools such as MinKNOW coverage plotting:
 
