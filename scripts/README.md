@@ -17,9 +17,12 @@ Builds a minimal BED from a gene list, a loci file, or both.
   BED-like tab-delimited file with at least `chrom`, `start`, `end`, and optional `name`.
 
 ### Behavior
-- queries Ensembl BioMart for gene coordinates
+- chooses gene coordinates with `--coordinate-source ensembl|ucsc` (default: `ensembl`)
+- `ensembl` queries Ensembl BioMart and supports the workflow's `hg38` / GRCh38 output
+- `ucsc` queries exact symbol hits from the UCSC Genome Browser's `hgnc` search track for the specified `--genome` assembly
+- emits 0-based, half-open BED coordinates for both sources; each source's 1-based start is converted before writing
 - warns about duplicated input gene symbols and removes them before querying
-- warns about gene symbols with no BioMart hit
+- warns about gene symbols with no hit from the selected source
 - warns about post-normalization duplicate names and removes them by default
 - can restrict output to canonical chromosomes with `--canonical-only`
 
@@ -75,6 +78,8 @@ Rscript scripts/normalize_to_bed.R \
   --version v1.0.5 \
   --genes gene_panel_lists/v1.0.5-20260316-release/v1.0.5-20260316-release-genes.txt \
   --loci gene_panel_lists/v1.0.5-20260316-release/v1.0.5-20260316-release-loci.txt \
+  --coordinate-source ucsc \
+  --genome hg38 \
   --padding 0 \
   --outdir adaptive_sampling_panels/v1.0.5-20260316-release
 
@@ -89,4 +94,10 @@ Rscript scripts/merge_nearby_regions.R \
   --version v1.0.5 \
   --gap 50000 \
   --outdir adaptive_sampling_panels/v1.0.5-20260316-release
+```
+
+The release runner keeps Ensembl as the default. To use UCSC coordinates without editing the script, run:
+
+```sh
+COORDINATE_SOURCE=ucsc ./run.sh
 ```

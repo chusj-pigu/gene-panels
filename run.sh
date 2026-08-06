@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TODAY="$(date +%F)"
 
 GENOME="hg38"
+COORDINATE_SOURCE="${COORDINATE_SOURCE:-ensembl}"
 PADDING_BP=20000
 MERGE_GAP_BP=50000
 OUTDIR="${ROOT_DIR}/adaptive_sampling_panels/v1.0.5-release"
@@ -25,6 +26,8 @@ Rscript "${ROOT_DIR}/scripts/normalize_to_bed.R" \
     --version="${VERSION}" \
     --genes="${GENESPATH}" \
     --loci="${LOCIPATH}" \
+    --coordinate-source="${COORDINATE_SOURCE}" \
+    --genome="${GENOME}" \
     --padding=0 \
     --outdir="${OUTDIR}" \
     --output-file="${NORMALIZED_BED}"

@@ -24,4 +24,6 @@ dependencies = [
     "tidyverse",
     "magrittr",
     "writexl",
+    "curl",
+    "jsonlite",
 ]

@@ -2,9 +2,15 @@
 
 suppressPackageStartupMessages({
   library(optparse)
-  library(biomaRt)
   library(tidyverse)
 })
+
+script_file <- sub(
+  "^--file=",
+  "",
+  grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)[[1]]
+)
+source(file.path(dirname(normalizePath(script_file)), "coordinate_sources.R"))
 
 # ---- Define options ----
 option_list <- list(
@@ -18,6 +24,10 @@ option_list <- list(
               help = "Explicit output BED file path; overrides generated naming", metavar = "FILE"),
   make_option(c("-p", "--padding"), type = "integer", default = 0,
               help = "Padding for start and end positions", metavar = "NUMBER"),
+  make_option(c("--coordinate-source"), type = "character", default = "ensembl", dest = "coordinate_source",
+              help = "Gene coordinate source: ensembl (BioMart) or ucsc (UCSC HGNC track)", metavar = "SOURCE"),
+  make_option(c("--genome"), type = "character", default = "hg38",
+              help = "Genome assembly; Ensembl currently supports hg38, UCSC uses this assembly directly", metavar = "ASSEMBLY"),
   make_option(c("-r", "--outdir"), type = "character", default = ".",
               help = "Output directory", metavar = "DIR"),
   make_option(c("-H", "--header"), action = "store_true", default = FALSE,
@@ -35,6 +45,8 @@ cat("📁 Output directory:", opt$outdir, "\n")
 cat("🏷️ Version:", opt$version, "\n")
 cat("📄 Output file override:", ifelse(is.null(opt$output_file), "<generated>", opt$output_file), "\n")
 cat("🧬 Padding:", opt$padding, "\n")
+cat("🧭 Coordinate source:", opt$coordinate_source, "\n")
+cat("🧬 Genome assembly:", opt$genome, "\n")
 cat("📚 Header row present:", isTRUE(opt$header), "\n")
 cat("🧪 Canonical only:", isTRUE(opt$canonical_only), "\n")
 cat("🧹 Remove post-normalization duplicates:", isTRUE(opt$remove_post_normalization_duplicates), "\n")
@@ -50,6 +62,12 @@ if (is.null(opt$version) || !nzchar(opt$version)) {
 
 if (opt$padding < 0) {
   stop("❌ --padding must be zero or greater.")
+}
+
+opt$coordinate_source <- validate_coordinate_source(opt$coordinate_source)
+
+if (is.null(opt$genome) || !nzchar(opt$genome)) {
+  stop("❌ Provide a non-empty --genome.")
 }
 
 if (!dir.exists(opt$outdir)) {
@@ -110,29 +128,27 @@ build_region_id <- function(label, chrom, start, end, fallback_prefix = "region"
 
 canonical_levels <- c(as.character(1:22), "X", "Y")
 
-# ---- Scrape gene loci from Ensembl ----
+# ---- Retrieve gene loci from the selected coordinate source ----
 gene_regions <- tibble()
 if (length(genes) > 0) {
-  cat("🔌 Connecting to Ensembl BioMart...\n")
-  ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
-
-  cat("🔍 Querying BioMart for gene coordinates...\n")
-  gene_regions <- getBM(
-    attributes = c("hgnc_symbol", "chromosome_name", "start_position", "end_position"),
-    filters = "hgnc_symbol",
-    values = genes,
-    mart = ensembl
+  source_label <- coordinate_source_label(opt$coordinate_source)
+  cat("🔌 Connecting to", source_label, "...\n")
+  cat("🔍 Querying", source_label, "for gene coordinates...\n")
+  gene_regions <- resolve_gene_coordinates(
+    genes = genes,
+    coordinate_source = opt$coordinate_source,
+    genome = opt$genome
   ) |>
     as_tibble() |>
     transmute(
       source = "gene",
-      chrom = normalize_chromosome(chromosome_name),
-      start = as.integer(start_position),
-      end = as.integer(end_position),
-      label = as.character(hgnc_symbol)
+      chrom = normalize_chromosome(chrom),
+      start = as.integer(start),
+      end = as.integer(end),
+      label = as.character(label)
     )
 
-  cat("✅ Retrieved", nrow(gene_regions), "gene loci from BioMart\n")
+  cat("✅ Retrieved", nrow(gene_regions), "gene loci from", source_label, "\n")
 
   matched_symbols <- unique(gene_regions$label)
   missing_symbols <- setdiff(genes, matched_symbols)
@@ -140,7 +156,7 @@ if (length(genes) > 0) {
   if (length(missing_symbols) > 0) {
     warning(
       paste0(
-        "No BioMart hit for ",
+        "No ", source_label, " hit for ",
         length(missing_symbols),
         " gene symbol(s): ",
         paste(missing_symbols, collapse = ", ")
