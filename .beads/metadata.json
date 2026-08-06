@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "gene_panels",
+  "project_id": "a0578b3d-9e99-42f5-9ef9-b1e063fcf649"
+}
